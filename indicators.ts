@@ -35,3 +35,5 @@ export function getMacd(prices: number[]){
    const ema12 = getEma(prices,12);
    
 }
+// skip indicators, skim fast thru them look at gajesh's code on hl, come back
+
