@@ -13,9 +13,7 @@ async function getKlines(marketId: number) {
 
     const klines = await klinesApi.candlesticks(SOL_MARKET_ID, '5m', Date.now() - 1000 * 60 * 60 * 1, Date.now(), 50, false);
     console.log(klines.candlesticks)
-    // const midPrices = getMidPrices(klines);
-    // const ema20 = getEma(midPrices, 20);
-    // console.log(ema20)
+
 
 }
 // [1,2,3,4,5,6,7,8,9,10]
