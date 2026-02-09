@@ -2,46 +2,33 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { streamText } from 'ai';
 import { z } from 'zod';
 import { PROMPT } from './prompt';
+import { getOpenOrders } from './getPositions';
+import type { Account } from './accounts';
 
 
-export const getWeather = async (modelName: "qwen/qwen3-coder" | "deepseek/deepseek-chat-v3.1" | "xiaomi/mimo-v2-flash") => {
+
+
+
+export const invokeAgent = async (account:Account) => {
     const openrouter = createOpenRouter({
         apiKey: process.env['OPEN_ROUTER_API_KEY'] ?? '',
     });
-
+    const intradayIndicators = await getIndicators("5m",0)
+    const longTermIndicators = await getIndicators()
+    // const longTermIndicators = await smth
+    const OpenOrders = await getOpenOrders(account.apiKey)
+//create 2 tools, createPositions and closeAllPosition
     const response = streamText({
-        model: openrouter(modelName),
-        prompt: PROMPT,
-        tools: {
-            getCurrentWeather: {
-                description: 'Get the current weather in a given location',
+        model: openrouter(account.modelName),
+        prompt: PROMPT.replace('{{OPEN_POSITIONS}}', JSON.stringify(OpenOrders))
+        .replace('{{INVOCATION_TIMES}}',"0")
+        .replace('{{PORTFOLIO_VALUE}}', "$100")
+        .replace('{{INTRADAY_POSNS}}',)
+            createPosition: {
+                description: "Open a position in the given market",
                 parameters: z.object({
-                    location: z
-                        .string()
-                        .describe('The city and state, e.g. San Francisco, CA'),
-                    unit: z.enum(['celsius', 'fahrenheit']).optional(),
-                }),
-                execute: async ({ location, unit = 'celsius' }) => {
-                    // Mock response for the weather
-                    const weatherData = {
-                        'Boston, MA': {
-                            celsius: '15°C',
-                            fahrenheit: '59°F',
-                        },
-                        'San Francisco, CA': {
-                            celsius: '18°C',
-                            fahrenheit: '64°F',
-                        },
-                    };
 
-                    const weather = weatherData[location];
-                    if (!weather) {
-                        return `Weather data for ${location} is not available.`;
-                    }
-
-                    return `The current weather in ${location} is ${weather[unit]}.`;
-                },
-            },
+            
         },
     });
 

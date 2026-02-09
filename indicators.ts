@@ -2,6 +2,7 @@
 // @params{period} - The period for which the EMA is being calculated
 
 import type { Candlestick } from "./lighter-sdk-ts/generated";
+
 export function getEma(prices: number[], period: number): number[] {
     const multiplier = 2 / (period + 1);
     
