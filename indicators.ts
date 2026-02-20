@@ -44,3 +44,12 @@ export function getMacd(prices: number[]) {
     const macd = ema12.map((_, index) => (ema12[index] ?? 0) - (ema26[index] ?? 0));
     return macd
 }
+
+export function getIndicators(prices: number[],period){
+    return {
+        getMidPrices(prices: number[]),
+        getEma(prices: number[], period: number),
+        getMacd(prices: number[])
+
+    }
+}

@@ -31,7 +31,7 @@ export async function getOpenOrders(account:Account) {
     }});
    // formatting
 }
-
+/ w
 // export async function getPortfolio(account:Account) {
 //     const data = await AccountApi({
 //         baseServer: new ServerConfiguration<{  }>(BASE_URL, {  }),
@@ -47,5 +47,5 @@ if(account){
     getOpenOrders(account).then((res) => {
         console.log(res)}).catch((err) => {
             console.error(err);
-        }) ;
+        }) 
 }
