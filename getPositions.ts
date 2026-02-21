@@ -19,7 +19,7 @@ export async function getOpenOrders(account:Account) {
     });
     
     // const Pnl = await accountApi.pnl('index', ACCOUNT_INDEX.toString(),"5m", Math.floor(Date.now()/1000) - 86400, Math.floor(Date.now()/1000), 100);
-   const currentOpenOrders = await accountApi.accountWithHttpInfo('index', account.apiKey.toString());
+   const currentOpenOrders = await accountApi.accountWithHttpInfo('index', account.accountIndex.toString());// index and not api key here 
 //    console.log(currentOpenOrders.data.accounts[0]?.positions) 
     return currentOpenOrders.data.accounts[0]?.positions?.map((pos)=> {return {
         symbolName: pos.symbol,
@@ -31,17 +31,7 @@ export async function getOpenOrders(account:Account) {
     }});
    // formatting
 }
-/ w
-// export async function getPortfolio(account:Account) {
-//     const data = await AccountApi({
-//         baseServer: new ServerConfiguration<{  }>(BASE_URL, {  }),
-//         httpApi: new IsomorphicFetchHttpLibrary(),
-//         middleware: [],
-//         authMethods: {
-//             apiKey: new ApiKeyAuthentication(account.apiKey)
-//         }
-//     }).accountWithHttpInfo('index', account.index.toString());
-// }
+
 const account =SUPPORTED_ACCOUNTS[0]
 if(account){
     getOpenOrders(account).then((res) => {
