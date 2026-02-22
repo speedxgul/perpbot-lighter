@@ -27,7 +27,8 @@ export async function getOpenOrders(account:Account) {
         unrealizedPnl: pos.unrealizedPnl,
         realizedPnl: pos.realizedPnl,
         entryPrice: pos.avgEntryPrice,
-        liquidationPrice: pos.liquidationPrice
+        liquidationPrice: pos.liquidationPrice,
+        sign: pos.sign
     }});
    // formatting
 }

@@ -41,17 +41,16 @@ export async function getKlines(
 // console.log(candles.slice(-3));
 
 export async function getIndicators(duration:Resolution, marketId:number):Promise<{midPrices:number[], ema20:number[], macd:number[]}> {
-    const klines = await getKlines(SOL_MARKET_ID, "1m", 100, Date.now(), Date.now() - 1000 * 60 * 60 * 24);
+    const klines = await getKlines(marketId, duration, 100, Date.now(), Date.now() - 1000 * 60 * 60 * 24);
     const midPrices = await getMidPrices(klines);
     // console.log("midPrices", midPrices.slice(-3));
     const ema20 = await getEma(midPrices, 20);
     const macd = await getMacd(midPrices);
     return {
-        midPrices:midPrices.slice(-3),
-        ema20:ema20.slice(-3),
-        macd:macd.slice(-3),
+        midPrices:midPrices.slice(-5),
+        ema20:ema20.slice(-5),
+        macd:macd.slice(-5),
     }
 }
 const indicators = await getIndicators("5m", SOL_MARKET_ID)
-
 console.log(indicators)

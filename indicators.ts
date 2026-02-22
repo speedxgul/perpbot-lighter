@@ -40,7 +40,6 @@ export function getMacd(prices: number[]) {
 
     ema12 = ema12.slice(-ema26.length);
 
-    console.log(ema12.length, ema26.length);
     const macd = ema12.map((_, index) => (ema12[index] ?? 0) - (ema26[index] ?? 0));
     return macd
 }
