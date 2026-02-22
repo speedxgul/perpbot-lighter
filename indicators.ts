@@ -1,7 +1,7 @@
 
 // @params{period} - The period for which the EMA is being calculated
 
-import type { Candlestick } from "./lighter-sdk-ts/generated";
+import type { Candle } from "./stockPrices";
 
 export function getEma(prices: number[], period: number): number[] {
     const multiplier = 2 / (period + 1);
@@ -28,8 +28,8 @@ export function getEma(prices: number[], period: number): number[] {
     return emas;
 }
 
-export function getMidPrices(candlesticks: Candlestick[]) {
-    return candlesticks.map(({open, close}) => Number(((open + close) / 2).toFixed(3)));
+export function getMidPrices(candle:Candle[]) {
+    return candle.map(({o, c}) => Number(((o + c) / 2).toFixed(3)));
 }
 
 // macd => ema12 = 38 points, ema26 = 24 points
@@ -43,13 +43,4 @@ export function getMacd(prices: number[]) {
     console.log(ema12.length, ema26.length);
     const macd = ema12.map((_, index) => (ema12[index] ?? 0) - (ema26[index] ?? 0));
     return macd
-}
-
-export function getIndicators(prices: number[],period){
-    return {
-        getMidPrices(prices: number[]),
-        getEma(prices: number[], period: number),
-        getMacd(prices: number[])
-
-    }
 }
