@@ -32,10 +32,14 @@ export async function getOpenOrders(account:Account) {
    // formatting
 }
 
-const account =SUPPORTED_ACCOUNTS[0]
-if(account){
-    getOpenOrders(account).then((res) => {
-        console.log(res)}).catch((err) => {
-            console.error(err);
-        }) 
+//I'm wrapping this in a import.meta.main true, so when it is externally called by llmstuff.ts, doesn't waste an api call,
+// logged only when bun getPositions.ts run
+if(import.meta.main){
+const account =SUPPORTED_ACCOUNTS[0] 
+    if(account){
+        getOpenOrders(account).then((res) => {
+            console.log(res)}).catch((err) => {
+                console.error(err);
+            }) 
+    }
 }

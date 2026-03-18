@@ -18,7 +18,7 @@ globalWithAiSdkWarnings.AI_SDK_LOG_WARNINGS = false;
 
 
 
-export const invokeAgent = async (account:Account) => {
+export const invokeAgent = async (account:Account, invocationCount = 0) => {
     const openrouter = createOpenRouter({
         apiKey: process.env['OPEN_ROUTER_API_KEY'] ?? '',
     });
@@ -53,7 +53,7 @@ export const invokeAgent = async (account:Account) => {
     console.log(openPositions)
     const portfolio = await getPortfolio(account)
     //prisma model invocation
-    const enrichedPrompt = PROMPT.replace("{{INVOKATION_TIMES}}", "0")// what is invocation count, fix this
+    const enrichedPrompt = PROMPT.replace("{{INVOKATION_TIMES}}", String(invocationCount))
     .replace("{{OPEN_POSITIONS}}", openPositions?.map((position) => `${position.symbol} ${position.position} ${position.sign}`).join(", ") ?? "")
     .replace("{{PORTFOLIO_VALUE}}", `$${portfolio.available}`)
     .replace("{{ALL_INDICATOR_DATA}}", ALL_INDICATOR_DATA ?? "")// if promise rejected then make a condition?
@@ -114,4 +114,17 @@ export const invokeAgent = async (account:Account) => {
     return response.text;
 };
 
-if (import.meta.main) invokeAgent(SUPPORTED_ACCOUNTS[0]!)
+if (import.meta.main) {
+    const account = SUPPORTED_ACCOUNTS[0]!;
+    let invocationCount = 0;
+    while (true) {
+        console.log(`\n--- Invocation #${invocationCount} ---`);
+        try {
+            await invokeAgent(account, invocationCount);
+        } catch (e) {
+            console.error('Agent error:', e);
+        }
+        invocationCount++;
+        await Bun.sleep(20_000);
+    }
+}

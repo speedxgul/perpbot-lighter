@@ -1,6 +1,5 @@
 import { NonceManagerType } from "./lighter-sdk-ts/nonce_manager";
 import { SignerClient } from "./lighter-sdk-ts/signer";
-import { AccountApi, ApiKeyAuthentication, CandlestickApi, IsomorphicFetchHttpLibrary, OrderApi, ServerConfiguration } from "./lighter-sdk-ts/generated";
 import type { Account } from "./accounts";
 import { API_KEY_INDEX, BASE_URL } from "./config";
 import { MARKETS } from "./markets";
@@ -19,13 +18,7 @@ export async function CreatePosition(account:Account,symbol:string,side:"LONG"|"
 
     const market = MARKETS[symbol as keyof typeof MARKETS];
 
-    const candleStickApi = new CandlestickApi({
-        baseServer: new ServerConfiguration<{  }>(BASE_URL, {  }),
-        httpApi: new IsomorphicFetchHttpLibrary(),
-        middleware: [],
-        authMethods: {}
-    });
-     const candleStickData = await getKlines(market.marketId, '1m', Date.now() - 1000 * 60 * 5, Date.now(), 1)
+     const candleStickData = await getKlines(market.marketId, '1m', 1, Date.now(), Date.now() - 1000 * 60)
      
      const latestPrice = candleStickData[candleStickData.length - 1]?.c;
      if (!latestPrice) {

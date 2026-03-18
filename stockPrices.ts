@@ -47,10 +47,8 @@ export async function getIndicators(duration:Resolution, marketId:number):Promis
     const ema20 = await getEma(midPrices, 20);
     const macd = await getMacd(midPrices);
     return {
-        midPrices:midPrices.slice(-5),
-        ema20:ema20.slice(-5),
-        macd:macd.slice(-5),
+        midPrices: midPrices.slice(-10),
+        ema20: ema20.slice(-10),
+        macd: macd.slice(-10),
     }
 }
-const indicators = await getIndicators("5m", SOL_MARKET_ID)
-console.log(indicators)
