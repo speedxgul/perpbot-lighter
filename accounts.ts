@@ -9,7 +9,7 @@ export const SUPPORTED_ACCOUNTS: Account[] = [{
     apiKey: process.env['API_KEY_QWEN_SUBACC__WITH_INDEX_2'] ?? '',
     accountIndex: 281474976626206,
     Name: "Qwen",
-    modelName: "qwen/qwen3-coder",
+    modelName: "anthropic/claude-opus-4-5",
 }, {
     apiKey: process.env['API_KEY_MAIN_ACC'] ?? '',
     accountIndex: 687819,

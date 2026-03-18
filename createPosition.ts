@@ -4,10 +4,11 @@ import { AccountApi, ApiKeyAuthentication, CandlestickApi, IsomorphicFetchHttpLi
 import type { Account } from "./accounts";
 import { API_KEY_INDEX, BASE_URL } from "./config";
 import { MARKETS } from "./markets";
+import { getKlines } from "./stockPrices";
 
 
 
-export async function CreatePosition(account:Account,symbol:string,side:"LONG"|"`SHORT", quantity:number) {
+export async function CreatePosition(account:Account,symbol:string,side:"LONG"|"SHORT", quantity:number) {
     const client = await SignerClient.create({
         url: BASE_URL,
         privateKey: account.apiKey,
@@ -24,24 +25,27 @@ export async function CreatePosition(account:Account,symbol:string,side:"LONG"|"
         middleware: [],
         authMethods: {}
     });
-     const candleStickData = await candleStickApi.candlesticks(market.marketId, '1m', Date.now() - 1000 * 60 * 5, Date.now(), 1, false)
-     const latestPrice = candleStickData.candlesticks[candleStickData.candlesticks.length - 1]?.close;
+     const candleStickData = await getKlines(market.marketId, '1m', Date.now() - 1000 * 60 * 5, Date.now(), 1)
+     
+     const latestPrice = candleStickData[candleStickData.length - 1]?.c;
      if (!latestPrice) {
         throw new Error("No latest price found");
      }
      console.log(latestPrice)
+     
+    const clientOrderIndex = Math.floor(market.clientOrderIndex * 1_000_000_000 + (Date.now() % 1_000_000_000));
 
     await client.createOrder({
         marketIndex: market.marketId,
-        clientOrderIndex: market.clientOrderIndex,// need to pass this for model to remember openedPosition Index
-        baseAmount: quantity * market.priceDecimals,
+        clientOrderIndex,
+        baseAmount: quantity * market.qtyDecimals,
         price: (side == "LONG" ? latestPrice * 1.01 : latestPrice * 0.99) * market.priceDecimals,
         isAsk: side == "LONG" ? false : true,
-        orderType: SignerClient.ORDER_TYPE_MARKET, // market
-        timeInForce: SignerClient.ORDER_TIME_IN_FORCE_GOOD_TILL_TIME,
+        orderType: SignerClient.ORDER_TYPE_MARKET,
+        timeInForce: SignerClient.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL,
         reduceOnly: 0,
         triggerPrice: SignerClient.NIL_TRIGGER_PRICE,
-        orderExpiry: SignerClient.DEFAULT_28_DAY_ORDER_EXPIRY,
+        orderExpiry: SignerClient.DEFAULT_IOC_EXPIRY,
     });
 }
 

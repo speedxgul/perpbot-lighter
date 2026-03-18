@@ -8,6 +8,13 @@ import { getPortfolio } from './getPortfolio';
 import { getIndicators } from './stockPrices';
 import { MARKETS } from './markets';
 import { CreatePosition } from './createPosition';
+import { closeAllPosition } from './closeAllPosition';
+
+const globalWithAiSdkWarnings = globalThis as typeof globalThis & {
+    AI_SDK_LOG_WARNINGS?: boolean;
+};
+
+globalWithAiSdkWarnings.AI_SDK_LOG_WARNINGS = false;
 
 
 
@@ -47,7 +54,7 @@ export const invokeAgent = async (account:Account) => {
     const portfolio = await getPortfolio(account)
     //prisma model invocation
     const enrichedPrompt = PROMPT.replace("{{INVOKATION_TIMES}}", "0")// what is invocation count, fix this
-    .replace("{{OPEN_POSITIONS}}", openPositions?.map((position) => `${position.symbolName} ${position.position} ${position.sign}`).join(", ") ?? "")
+    .replace("{{OPEN_POSITIONS}}", openPositions?.map((position) => `${position.symbol} ${position.position} ${position.sign}`).join(", ") ?? "")
     .replace("{{PORTFOLIO_VALUE}}", `$${portfolio.available}`)
     .replace("{{ALL_INDICATOR_DATA}}", ALL_INDICATOR_DATA ?? "")// if promise rejected then make a condition?
     .replace("{{AVAILABLE_CASH}}", `$${portfolio.available}`)
@@ -58,19 +65,25 @@ export const invokeAgent = async (account:Account) => {
     const response = streamText({
         model: openrouter(account.modelName),
         prompt: enrichedPrompt,
+        toolChoice: 'required',
         tools:{
             createPosition: {
                 description: 'Open a position in the given market',
                 inputSchema: z.object({
-                  symbol: z.enum(Object.keys(MARKETS)).describe('The symbol to open the position at'),
+                  symbol: z.enum(Object.keys(MARKETS) as [string, ...string[]]).describe('The symbol to open the position at'),
                   side: z.enum(["LONG", "SHORT"]),
                   quantity: z.number().describe('The quantity of the position to open.'),
                 }),
                 execute: async ({ symbol, side, quantity }) => {
-                  // Do the opposite of what the AI infers
-                
-                  await CreatePosition(account, symbol, side, quantity);
-                  return `Position opened successfully for ${quantity} ${symbol}`;
+                  console.log(`[tool] createPosition: ${side} ${quantity} ${symbol}`);
+                  try {
+                    await CreatePosition(account, symbol, side, quantity);
+                    console.log(`[tool] createPosition success`);
+                    return `Position opened successfully for ${quantity} ${symbol}`;
+                  } catch (e) {
+                    console.error(`[tool] createPosition error:`, e);
+                    throw e;
+                  }
                   // await prisma.toolCalls.create({
                   //   data: {
                   //     invocationId: modelInvocation.id,
@@ -80,6 +93,19 @@ export const invokeAgent = async (account:Account) => {
                   // });
                 },
               },
+            closeAllPositions: {
+              description: 'Close all open positions',
+              inputSchema: z.object({}),
+              execute: async () => {
+                await closeAllPosition(account);
+                return 'All positions closed successfully';
+              }
+            },
+            hold: {
+              description: 'Do nothing this cycle',
+              inputSchema: z.object({ reason: z.string().describe('Brief reason for holding') }),
+              execute: async ({ reason }) => `Holding: ${reason}`,
+            }
 
 }
     });
@@ -88,4 +114,4 @@ export const invokeAgent = async (account:Account) => {
     return response.text;
 };
 
-invokeAgent(SUPPORTED_ACCOUNTS[0]!)
+if (import.meta.main) invokeAgent(SUPPORTED_ACCOUNTS[0]!)

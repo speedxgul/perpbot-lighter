@@ -1,4 +1,3 @@
-import { symbolName } from "typescript";
 import { AccountApi, ApiKeyAuthentication, IsomorphicFetchHttpLibrary, OrderApi, ServerConfiguration } from "./lighter-sdk-ts/generated";
 import { SUPPORTED_ACCOUNTS, type Account } from "./accounts";
 
@@ -22,7 +21,7 @@ export async function getOpenOrders(account:Account) {
    const currentOpenOrders = await accountApi.accountWithHttpInfo('index', account.accountIndex.toString());// index and not api key here 
 //    console.log(currentOpenOrders.data.accounts[0]?.positions) 
     return currentOpenOrders.data.accounts[0]?.positions?.map((pos)=> {return {
-        symbolName: pos.symbol,
+        symbol: pos.symbol,
         position : pos.position,
         unrealizedPnl: pos.unrealizedPnl,
         realizedPnl: pos.realizedPnl,

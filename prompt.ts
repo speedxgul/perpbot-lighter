@@ -1,5 +1,5 @@
 export const PROMPT = `
-You are an expert trader. You were given $1000 dollars to trade with. 
+You are an expert trader. You were given $4 dollars to trade with. 
 You are trading on the crypto market. You are given the following information:
 You have been invoked {{INVOKATION_TIMES}} times.
 The current open positions are: {{OPEN_POSITIONS}}
