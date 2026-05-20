@@ -19,7 +19,7 @@ export async function closePosition(account: Account, symbol: string): Promise<s
 
     const client = await SignerClient.create({
         url: BASE_URL,
-        privateKey: account.apiKey,
+        privateKey: account.exchangeApiKey,
         apiKeyIndex: API_KEY_INDEX,
         accountIndex: Number(account.accountIndex),
         nonceManagementType: NonceManagerType.API

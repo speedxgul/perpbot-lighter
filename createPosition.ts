@@ -10,7 +10,7 @@ import { getKlines } from "./stockPrices";
 export async function CreatePosition(account:Account,symbol:string,side:"LONG"|"SHORT", quantity:number) {
     const client = await SignerClient.create({
         url: BASE_URL,
-        privateKey: account.apiKey,
+        privateKey: account.exchangeApiKey,
         apiKeyIndex: API_KEY_INDEX,
         accountIndex: Number(account.accountIndex),
         nonceManagementType: NonceManagerType.API

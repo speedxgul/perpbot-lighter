@@ -13,7 +13,7 @@ export async function getOpenOrders(account:Account) {
         httpApi: new IsomorphicFetchHttpLibrary(),
         middleware: [],
         authMethods: {
-            apiKey: new ApiKeyAuthentication(account.apiKey)
+            apiKey: new ApiKeyAuthentication(account.exchangeApiKey)
         }
     });
     
