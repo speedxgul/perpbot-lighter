@@ -40,7 +40,7 @@
   <!-- Top stats -->
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
     <div class="card">
-      <p class="text-slate-400 text-xs uppercase tracking-wider mb-1">Portfolio Value</p>
+      <p class="text-slate-400 text-xs uppercase tracking-wider mb-1">Equity (collateral + PnL)</p>
       <p class="text-2xl font-bold" id="statCollateral">—</p>
     </div>
     <div class="card">
@@ -160,11 +160,23 @@ function renderData({ invocations, toolCalls }) {
   // Top stats
   const latest = invocations[invocations.length - 1];
   const collateral = parseFloat(latest.collateral ?? 0);
-  const startCollateral = parseFloat(invocations[0].collateral ?? collateral);
-  const diff = collateral - startCollateral;
+
+  // Compute real equity = collateral + sum of unrealized PnL from open positions
+  function equityFromInv(inv) {
+    let unrealizedSum = 0;
+    try {
+      const positions = JSON.parse(inv.open_positions ?? '[]');
+      for (const p of positions) unrealizedSum += parseFloat(p.unrealizedPnl ?? 0);
+    } catch {}
+    return parseFloat(inv.collateral ?? 0) + unrealizedSum;
+  }
+
+  const equity = equityFromInv(latest);
+  const startEquity = equityFromInv(invocations[0]);
+  const diff = equity - startEquity;
   const sign = diff >= 0 ? '+' : '';
   document.getElementById('statCollateral').innerHTML =
-    `${fmt(latest.collateral)} <span class="${diff >= 0 ? 'stat-up' : 'stat-down'} text-sm">(${sign}${diff.toFixed(4)})</span>`;
+    `${fmt(equity)} <span class="${diff >= 0 ? 'stat-up' : 'stat-down'} text-sm">(${sign}${diff.toFixed(4)})</span>`;
   document.getElementById('statAvailable').textContent = fmt(latest.available);
   document.getElementById('statCycles').textContent = invocations.length;
 
@@ -173,7 +185,7 @@ function renderData({ invocations, toolCalls }) {
 
   // Portfolio chart
   portfolioChart.data.labels = invocations.map(inv => timeLabel(inv.created_at));
-  portfolioChart.data.datasets[0].data = invocations.map(inv => parseFloat(inv.collateral ?? 0));
+  portfolioChart.data.datasets[0].data = invocations.map(equityFromInv);
   portfolioChart.data.datasets[1].data = invocations.map(inv => parseFloat(inv.available ?? 0));
   portfolioChart.update();
 

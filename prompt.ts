@@ -41,10 +41,10 @@ You must submit all 3 decisions in a single call. Do not skip any market.
 Use the 4h timeframe as the primary trend signal. Use 5m as entry timing.
 
 **No position open:**
-- 4h bullish (price > EMA20 AND MACD > 0) → open LONG. Don't wait for 5m to agree.
-- 4h bearish (price < EMA20 AND MACD < 0) → open SHORT. Don't wait for 5m to agree.
-- 4h MACD exactly 0 or price exactly at EMA20 → hold and wait.
-- 5m signals only matter to pick entry timing, not to block an entry.
+- 4h bullish (price > EMA20) AND 5m bullish (price > EMA20 AND MACD > 0) → open LONG immediately. Do not wait for 4h MACD to turn positive — price above EMA20 is the trend signal, MACD is lagging.
+- 4h bearish (price < EMA20) AND 5m bearish (price < EMA20 AND MACD < 0) → open SHORT immediately.
+- 4h price above EMA20 but 5m MACD ≤ 0 → wait for 5m momentum to confirm, hold.
+- 4h price below EMA20 but 5m MACD ≥ 0 → wait for 5m to confirm bearish, hold.
 
 **Position already open:**
 - 4h trend intact (price still on correct side of EMA20 and MACD hasn't flipped) → hold. Do NOT close just because MACD is falling — falling MACD with positive value is still bullish.
