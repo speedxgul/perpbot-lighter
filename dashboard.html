@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Trading Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    body { background: #0f1117; color: #e2e8f0; font-family: 'Inter', system-ui, sans-serif; }
+    .card { background: #1a1d2e; border: 1px solid #2d3148; border-radius: 12px; padding: 20px; }
+    .stat-up { color: #22c55e; }
+    .stat-down { color: #ef4444; }
+    .stat-neutral { color: #94a3b8; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
+    .pill-hold { background: #1e293b; color: #94a3b8; }
+    .pill-open { background: #14432a; color: #22c55e; }
+    .pill-close { background: #3b1414; color: #ef4444; }
+    .pill-stop { background: #3b1a14; color: #f97316; }
+    .pill-reverse { background: #1a1a3b; color: #818cf8; }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #1a1d2e; } ::-webkit-scrollbar-thumb { background: #2d3148; border-radius: 2px; }
+  </style>
+</head>
+<body class="min-h-screen p-6">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-white">AI Trading Dashboard</h1>
+      <p class="text-slate-400 text-sm mt-0.5">Lighter DEX · Perpetuals</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <div class="live-dot" id="liveDot"></div>
+      <span class="text-sm text-slate-400" id="lastUpdate">connecting…</span>
+    </div>
+  </div>
+
+  <!-- Top stats -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="card">
+      <p class="text-slate-400 text-xs uppercase tracking-wider mb-1">Portfolio Value</p>
+      <p class="text-2xl font-bold" id="statCollateral">—</p>
+    </div>
+    <div class="card">
+      <p class="text-slate-400 text-xs uppercase tracking-wider mb-1">Available Cash</p>
+      <p class="text-2xl font-bold" id="statAvailable">—</p>
+    </div>
+    <div class="card">
+      <p class="text-slate-400 text-xs uppercase tracking-wider mb-1">Total Cycles</p>
+      <p class="text-2xl font-bold" id="statCycles">—</p>
+    </div>
+    <div class="card">
+      <p class="text-slate-400 text-xs uppercase tracking-wider mb-1">Actions Taken</p>
+      <p class="text-2xl font-bold" id="statActions">—</p>
+    </div>
+  </div>
+
+  <!-- Charts row 1 -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+    <div class="card">
+      <h2 class="text-sm font-semibold text-slate-300 mb-4">Portfolio Value over Time</h2>
+      <canvas id="chartPortfolio" height="180"></canvas>
+    </div>
+    <div class="card">
+      <h2 class="text-sm font-semibold text-slate-300 mb-4">Unrealized PnL by Market</h2>
+      <canvas id="chartPnl" height="180"></canvas>
+    </div>
+  </div>
+
+  <!-- Charts row 2 -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+    <div class="card flex flex-col items-center">
+      <h2 class="text-sm font-semibold text-slate-300 mb-4 self-start">Action Breakdown</h2>
+      <canvas id="chartActions" height="160" width="160"></canvas>
+      <div class="flex flex-wrap gap-2 mt-4 justify-center" id="actionLegend"></div>
+    </div>
+    <div class="card md:col-span-2">
+      <h2 class="text-sm font-semibold text-slate-300 mb-3">Recent Decisions</h2>
+      <div class="overflow-y-auto" style="max-height:260px">
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="text-slate-500 border-b border-slate-700">
+              <th class="text-left pb-2 font-medium">Cycle</th>
+              <th class="text-left pb-2 font-medium">Symbol</th>
+              <th class="text-left pb-2 font-medium">Action</th>
+              <th class="text-left pb-2 font-medium">Reason / Result</th>
+              <th class="text-right pb-2 font-medium">Time</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody" class="divide-y divide-slate-800"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ── Chart setup ──────────────────────────────────────────────────────────────
+const COLORS = { SOL: '#f59e0b', ZEC: '#818cf8', HYPE: '#34d399' };
+const chartDefaults = {
+  responsive: true,
+  animation: false,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { ticks: { color: '#475569', font: { size: 10 } }, grid: { color: '#1e293b' } },
+    y: { ticks: { color: '#475569', font: { size: 10 } }, grid: { color: '#1e293b' } },
+  },
+};
+
+const portfolioChart = new Chart(document.getElementById('chartPortfolio'), {
+  type: 'line',
+  data: { labels: [], datasets: [
+    { label: 'Collateral', data: [], borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', fill: true, tension: 0.3, pointRadius: 2 },
+    { label: 'Available', data: [], borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.05)', fill: true, tension: 0.3, pointRadius: 2 },
+  ]},
+  options: { ...chartDefaults, plugins: { legend: { display: true, labels: { color: '#94a3b8', boxWidth: 12, font: { size: 11 } } } } },
+});
+
+const pnlChart = new Chart(document.getElementById('chartPnl'), {
+  type: 'line',
+  data: { labels: [], datasets: [
+    { label: 'SOL', data: [], borderColor: COLORS.SOL, tension: 0.3, pointRadius: 2, borderWidth: 1.5 },
+    { label: 'ZEC', data: [], borderColor: COLORS.ZEC, tension: 0.3, pointRadius: 2, borderWidth: 1.5 },
+    { label: 'HYPE', data: [], borderColor: COLORS.HYPE, tension: 0.3, pointRadius: 2, borderWidth: 1.5 },
+  ]},
+  options: { ...chartDefaults, plugins: { legend: { display: true, labels: { color: '#94a3b8', boxWidth: 12, font: { size: 11 } } } } },
+});
+
+const actionsChart = new Chart(document.getElementById('chartActions'), {
+  type: 'doughnut',
+  data: { labels: [], datasets: [{ data: [], backgroundColor: ['#475569','#22c55e','#ef4444','#f97316','#818cf8'], borderWidth: 0, hoverOffset: 4 }] },
+  options: { responsive: true, animation: false, cutout: '65%', plugins: { legend: { display: false } } },
+});
+
+// ── Data rendering ────────────────────────────────────────────────────────────
+function fmt(val) { return val == null ? '—' : `$${parseFloat(val).toFixed(4)}`; }
+function timeLabel(ts) {
+  const d = new Date(ts * 1000);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function pillClass(tool) {
+  if (tool === 'holdPosition') return 'pill-hold';
+  if (tool === 'createPosition') return 'pill-open';
+  if (tool === 'closePosition') return 'pill-close';
+  if (tool === 'stopLoss') return 'pill-stop';
+  if (tool === 'reversePosition') return 'pill-reverse';
+  return 'pill-hold';
+}
+
+function pillLabel(tool) {
+  const map = { holdPosition: 'hold', createPosition: 'open', closePosition: 'close', stopLoss: 'stop-loss', reversePosition: 'reverse' };
+  return map[tool] ?? tool;
+}
+
+function renderData({ invocations, toolCalls }) {
+  if (!invocations.length) return;
+
+  // Top stats
+  const latest = invocations[invocations.length - 1];
+  const collateral = parseFloat(latest.collateral ?? 0);
+  const startCollateral = parseFloat(invocations[0].collateral ?? collateral);
+  const diff = collateral - startCollateral;
+  const sign = diff >= 0 ? '+' : '';
+  document.getElementById('statCollateral').innerHTML =
+    `${fmt(latest.collateral)} <span class="${diff >= 0 ? 'stat-up' : 'stat-down'} text-sm">(${sign}${diff.toFixed(4)})</span>`;
+  document.getElementById('statAvailable').textContent = fmt(latest.available);
+  document.getElementById('statCycles').textContent = invocations.length;
+
+  const actionCount = toolCalls.filter(t => t.tool !== 'holdPosition').length;
+  document.getElementById('statActions').textContent = actionCount;
+
+  // Portfolio chart
+  portfolioChart.data.labels = invocations.map(inv => timeLabel(inv.created_at));
+  portfolioChart.data.datasets[0].data = invocations.map(inv => parseFloat(inv.collateral ?? 0));
+  portfolioChart.data.datasets[1].data = invocations.map(inv => parseFloat(inv.available ?? 0));
+  portfolioChart.update();
+
+  // PnL by market
+  const symbols = ['SOL', 'ZEC', 'HYPE'];
+  pnlChart.data.labels = invocations.map(inv => timeLabel(inv.created_at));
+  symbols.forEach((sym, i) => {
+    pnlChart.data.datasets[i].data = invocations.map(inv => {
+      try {
+        const positions = JSON.parse(inv.open_positions ?? '[]');
+        const pos = positions.find(p => p.symbol === sym);
+        return pos ? parseFloat(pos.unrealizedPnl ?? 0) : null;
+      } catch { return null; }
+    });
+  });
+  pnlChart.update();
+
+  // Action breakdown
+  const counts = {};
+  toolCalls.forEach(tc => { counts[tc.tool] = (counts[tc.tool] ?? 0) + 1; });
+  const labels = Object.keys(counts);
+  actionsChart.data.labels = labels;
+  actionsChart.data.datasets[0].data = labels.map(l => counts[l]);
+  actionsChart.update();
+
+  const legend = document.getElementById('actionLegend');
+  const bgColors = ['#475569','#22c55e','#ef4444','#f97316','#818cf8','#a78bfa'];
+  legend.innerHTML = labels.map((l, i) =>
+    `<span class="text-xs flex items-center gap-1"><span style="width:8px;height:8px;border-radius:2px;background:${bgColors[i]};display:inline-block"></span>${pillLabel(l)} (${counts[l]})</span>`
+  ).join('');
+
+  // Recent decisions table
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = toolCalls.slice(0, 30).map(tc => {
+    let args = {};
+    try { args = JSON.parse(tc.args ?? '{}'); } catch {}
+    const symbol = args.symbol ?? args.decisions?.[0]?.symbol ?? '—';
+    const reason = (tc.result ?? tc.error ?? args.reason ?? '').slice(0, 80);
+    return `<tr class="hover:bg-slate-800/40">
+      <td class="py-1.5 pr-3 text-slate-500">#${tc.invocation_count ?? '—'}</td>
+      <td class="py-1.5 pr-3 font-mono" style="color:${COLORS[symbol] ?? '#94a3b8'}">${symbol}</td>
+      <td class="py-1.5 pr-3"><span class="pill ${pillClass(tc.tool)}">${pillLabel(tc.tool)}</span></td>
+      <td class="py-1.5 pr-3 text-slate-400 max-w-xs truncate">${reason}</td>
+      <td class="py-1.5 text-right text-slate-500">${timeLabel(tc.created_at)}</td>
+    </tr>`;
+  }).join('');
+
+  // Last update
+  document.getElementById('lastUpdate').textContent = `updated ${new Date().toLocaleTimeString()}`;
+}
+
+// ── SSE connection ────────────────────────────────────────────────────────────
+function connect() {
+  const es = new EventSource('/api/stream');
+  es.onmessage = (e) => {
+    try { renderData(JSON.parse(e.data)); } catch {}
+  };
+  es.onerror = () => {
+    document.getElementById('liveDot').style.background = '#ef4444';
+    document.getElementById('lastUpdate').textContent = 'reconnecting…';
+    es.close();
+    setTimeout(connect, 3000);
+  };
+  es.onopen = () => {
+    document.getElementById('liveDot').style.background = '#22c55e';
+  };
+}
+
+connect();
+</script>
+</body>
+</html>
