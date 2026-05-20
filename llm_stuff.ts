@@ -9,6 +9,7 @@ import { getIndicators } from './stockPrices';
 import { MARKETS } from './markets';
 import { CreatePosition } from './createPosition';
 import { closeAllPosition } from './closeAllPosition';
+import { logInvocation, logToolCall } from './db';
 
 (globalThis as any).AI_SDK_LOG_WARNINGS = false;
 
@@ -46,7 +47,15 @@ export const invokeAgent = async (account:Account, invocationCount = 0) => {
     const openPositions = await getOpenOrders(account)
     console.log(openPositions)
     const portfolio = await getPortfolio(account)
-    //prisma model invocation
+
+    const invocationId = logInvocation({
+        accountName: account.Name,
+        invocationCount,
+        collateral: portfolio.collateral,
+        available: portfolio.available,
+        openPositions: openPositions ?? [],
+    });
+
     const enrichedPrompt = PROMPT.replace("{{INVOKATION_TIMES}}", String(invocationCount))
     .replace("{{OPEN_POSITIONS}}", openPositions?.map((position) => `${position.symbol} ${position.position} ${position.sign}`).join(", ") ?? "")
     .replace("{{ALL_INDICATOR_DATA}}", ALL_INDICATOR_DATA ?? "")
@@ -71,19 +80,16 @@ export const invokeAgent = async (account:Account, invocationCount = 0) => {
                   console.log(`[tool] createPosition: ${side} ${quantity} ${symbol}`);
                   try {
                     await CreatePosition(account, symbol, side, quantity);
+                    const result = `Position opened successfully for ${quantity} ${symbol}`;
+                    logToolCall({ invocationId, tool: 'createPosition', args: { symbol, side, quantity }, result });
                     console.log(`[tool] createPosition success`);
-                    return `Position opened successfully for ${quantity} ${symbol}`;
+                    return result;
                   } catch (e) {
+                    const error = String(e);
+                    logToolCall({ invocationId, tool: 'createPosition', args: { symbol, side, quantity }, error });
                     console.error(`[tool] createPosition error:`, e);
                     throw e;
                   }
-                  // await prisma.toolCalls.create({
-                  //   data: {
-                  //     invocationId: modelInvocation.id,
-                  //     toolCallType: ToolCallType.CREATE_POSITION,
-                  //     metadata: JSON.stringify({ symbol, side, quantity }),
-                  //   },
-                  // });
                 },
               },
             closeAllPositions: {
@@ -92,7 +98,9 @@ export const invokeAgent = async (account:Account, invocationCount = 0) => {
               execute: async () => {
                 console.log(`[tool] closeAllPositions`);
                 await closeAllPosition(account);
-                return 'All positions closed successfully';
+                const result = 'All positions closed successfully';
+                logToolCall({ invocationId, tool: 'closeAllPositions', args: {}, result });
+                return result;
               }
             },
             hold: {
@@ -100,6 +108,7 @@ export const invokeAgent = async (account:Account, invocationCount = 0) => {
               inputSchema: z.object({ reason: z.string().describe('Brief reason for holding') }),
               execute: async ({ reason }) => {
                 console.log(`[tool] hold: ${reason}`);
+                logToolCall({ invocationId, tool: 'hold', args: { reason }, result: reason });
                 return `Holding: ${reason}`;
               },
             }
