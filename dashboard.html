@@ -69,6 +69,41 @@
     </div>
   </div>
 
+  <!-- Performance metrics -->
+  <div class="card mb-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-sm font-semibold text-slate-300">Performance</h2>
+      <span class="text-xs text-slate-500" id="perfRange">—</span>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+      <div>
+        <p class="text-slate-500 text-[10px] uppercase tracking-wider">Total Return</p>
+        <p class="text-lg font-bold" id="perfReturn">—</p>
+      </div>
+      <div>
+        <p class="text-slate-500 text-[10px] uppercase tracking-wider">Realized PnL</p>
+        <p class="text-lg font-bold" id="perfRealized">—</p>
+      </div>
+      <div>
+        <p class="text-slate-500 text-[10px] uppercase tracking-wider">Unrealized PnL</p>
+        <p class="text-lg font-bold" id="perfUnrealized">—</p>
+      </div>
+      <div>
+        <p class="text-slate-500 text-[10px] uppercase tracking-wider">Max Drawdown</p>
+        <p class="text-lg font-bold stat-down" id="perfDrawdown">—</p>
+      </div>
+      <div>
+        <p class="text-slate-500 text-[10px] uppercase tracking-wider">Win Rate</p>
+        <p class="text-lg font-bold" id="perfWinRate">—</p>
+      </div>
+      <div>
+        <p class="text-slate-500 text-[10px] uppercase tracking-wider">Trades (open / closed)</p>
+        <p class="text-lg font-bold" id="perfTrades">—</p>
+      </div>
+    </div>
+    <div class="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3" id="perfPerSymbol"></div>
+  </div>
+
   <!-- Charts row 2 -->
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
     <div class="card flex flex-col items-center">
@@ -92,6 +127,32 @@
           <tbody id="tableBody" class="divide-y divide-slate-800"></tbody>
         </table>
       </div>
+    </div>
+  </div>
+
+  <!-- Trades log -->
+  <div class="card">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-slate-300">Trades</h2>
+      <span class="text-xs text-slate-500" id="tradesSummary">—</span>
+    </div>
+    <div class="overflow-y-auto" style="max-height:320px">
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="text-slate-500 border-b border-slate-700">
+            <th class="text-left pb-2 font-medium">Symbol</th>
+            <th class="text-left pb-2 font-medium">Side</th>
+            <th class="text-right pb-2 font-medium">Qty</th>
+            <th class="text-right pb-2 font-medium">Entry</th>
+            <th class="text-right pb-2 font-medium">Exit</th>
+            <th class="text-right pb-2 font-medium">PnL</th>
+            <th class="text-right pb-2 font-medium">Hold</th>
+            <th class="text-right pb-2 font-medium">Entered</th>
+            <th class="text-left pb-2 pl-3 font-medium">Status</th>
+          </tr>
+        </thead>
+        <tbody id="tradesBody" class="divide-y divide-slate-800"></tbody>
+      </table>
     </div>
   </div>
 
@@ -154,7 +215,104 @@ function pillLabel(tool) {
   return map[tool] ?? tool;
 }
 
-function renderData({ invocations, toolCalls }) {
+function fmtSigned(n, digits = 4) {
+  if (n == null || isNaN(n)) return '—';
+  const s = n >= 0 ? '+' : '';
+  return `${s}${n.toFixed(digits)}`;
+}
+
+function fmtDuration(secs) {
+  if (secs == null) return '—';
+  if (secs < 60) return `${Math.round(secs)}s`;
+  if (secs < 3600) return `${Math.round(secs / 60)}m`;
+  if (secs < 86400) return `${(secs / 3600).toFixed(1)}h`;
+  return `${(secs / 86400).toFixed(1)}d`;
+}
+
+function renderPerformance(metrics, invocations) {
+  if (!metrics) return;
+  const ret = metrics.totalReturn ?? 0;
+  document.getElementById('perfReturn').innerHTML =
+    `<span class="${ret >= 0 ? 'stat-up' : 'stat-down'}">${fmtSigned(ret)}</span>` +
+    ` <span class="text-xs text-slate-500">(${fmtSigned(metrics.totalReturnPct, 2)}%)</span>`;
+
+  const real = metrics.realizedPnl ?? 0;
+  document.getElementById('perfRealized').innerHTML =
+    `<span class="${real >= 0 ? 'stat-up' : real < 0 ? 'stat-down' : 'stat-neutral'}">${fmtSigned(real)}</span>`;
+
+  const un = metrics.unrealizedPnl ?? 0;
+  document.getElementById('perfUnrealized').innerHTML =
+    `<span class="${un >= 0 ? 'stat-up' : un < 0 ? 'stat-down' : 'stat-neutral'}">${fmtSigned(un)}</span>`;
+
+  document.getElementById('perfDrawdown').textContent =
+    `-${(metrics.maxDrawdown ?? 0).toFixed(4)} (${(metrics.maxDrawdownPct ?? 0).toFixed(2)}%)`;
+
+  document.getElementById('perfWinRate').textContent =
+    metrics.closedTrades ? `${metrics.winRatePct.toFixed(1)}% (${metrics.wins}/${metrics.closedTrades})` : '—';
+
+  document.getElementById('perfTrades').textContent =
+    `${metrics.openTrades} open · ${metrics.closedTrades} closed`;
+
+  if (invocations.length) {
+    const start = new Date(invocations[0].created_at * 1000);
+    const end = new Date(invocations[invocations.length - 1].created_at * 1000);
+    document.getElementById('perfRange').textContent =
+      `${start.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })} → ${end.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}`;
+  }
+
+  const per = metrics.perSymbol ?? {};
+  const symbols = Object.keys(per);
+  document.getElementById('perfPerSymbol').innerHTML = symbols.length === 0
+    ? `<p class="text-xs text-slate-500 col-span-3">No closed trades yet — metrics will populate after the first close.</p>`
+    : symbols.map(sym => {
+      const s = per[sym];
+      const cls = s.realizedPnl > 0 ? 'stat-up' : s.realizedPnl < 0 ? 'stat-down' : 'stat-neutral';
+      return `<div class="border border-slate-800 rounded-lg p-3">
+        <div class="flex items-center justify-between">
+          <span class="font-mono font-bold" style="color:${COLORS[sym] ?? '#94a3b8'}">${sym}</span>
+          <span class="text-xs text-slate-500">${s.trades} trades</span>
+        </div>
+        <div class="mt-2 flex items-center justify-between text-sm">
+          <span class="${cls} font-semibold">${fmtSigned(s.realizedPnl)}</span>
+          <span class="text-xs text-slate-500">${s.winRate.toFixed(0)}% win</span>
+        </div>
+      </div>`;
+    }).join('');
+}
+
+function renderTrades(trades) {
+  const body = document.getElementById('tradesBody');
+  if (!trades || trades.length === 0) {
+    body.innerHTML = `<tr><td colspan="9" class="py-6 text-center text-slate-500 text-xs">No trades yet. They will appear after the first position open.</td></tr>`;
+    document.getElementById('tradesSummary').textContent = '0 trades';
+    return;
+  }
+  const closed = trades.filter(t => !t.open).length;
+  document.getElementById('tradesSummary').textContent = `${trades.length} total · ${closed} closed`;
+
+  const sorted = [...trades].sort((a, b) => b.entryTime - a.entryTime);
+  body.innerHTML = sorted.map(t => {
+    const pnlCls = t.open ? 'stat-neutral' : t.realizedPnl > 0 ? 'stat-up' : t.realizedPnl < 0 ? 'stat-down' : 'stat-neutral';
+    const pnl = t.open ? 'open' : fmtSigned(t.realizedPnl);
+    const sideCls = t.side === 'LONG' ? 'pill-open' : 'pill-close';
+    const status = t.open
+      ? `<span class="pill pill-hold">open</span>`
+      : `<span class="pill pill-close">closed</span>`;
+    return `<tr class="hover:bg-slate-800/40">
+      <td class="py-1.5 pr-3 font-mono font-semibold" style="color:${COLORS[t.symbol] ?? '#94a3b8'}">${t.symbol}</td>
+      <td class="py-1.5 pr-3"><span class="pill ${sideCls}">${t.side}</span></td>
+      <td class="py-1.5 pr-3 text-right text-slate-300">${t.qty}</td>
+      <td class="py-1.5 pr-3 text-right text-slate-400">${t.entryPrice ? t.entryPrice.toFixed(4) : '—'}</td>
+      <td class="py-1.5 pr-3 text-right text-slate-400">${t.exitPrice ? t.exitPrice.toFixed(4) : '—'}</td>
+      <td class="py-1.5 pr-3 text-right ${pnlCls} font-semibold">${pnl}</td>
+      <td class="py-1.5 pr-3 text-right text-slate-500">${fmtDuration(t.holdSeconds ?? (Date.now()/1000 - t.entryTime))}</td>
+      <td class="py-1.5 pr-3 text-right text-slate-500">${timeLabel(t.entryTime)}</td>
+      <td class="py-1.5 pl-3">${status}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderData({ invocations, toolCalls, trades, metrics }) {
   if (!invocations.length) return;
 
   // Top stats
@@ -233,7 +391,9 @@ function renderData({ invocations, toolCalls }) {
     </tr>`;
   }).join('');
 
-  // Last update
+  renderPerformance(metrics, invocations);
+  renderTrades(trades);
+
   document.getElementById('lastUpdate').textContent = `updated ${new Date().toLocaleTimeString()}`;
 }
 
