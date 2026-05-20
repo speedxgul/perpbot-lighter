@@ -28,11 +28,13 @@ export async function CreatePosition(account:Account,symbol:string,side:"LONG"|"
      
     const clientOrderIndex = Math.floor(market.clientOrderIndex * 1_000_000_000 + (Date.now() % 1_000_000_000));
 
+    const rawPrice = (side == "LONG" ? latestPrice * 1.01 : latestPrice * 0.99) * market.priceDecimals;
+
     await client.createOrder({
         marketIndex: market.marketId,
         clientOrderIndex,
-        baseAmount: quantity * market.qtyDecimals,
-        price: (side == "LONG" ? latestPrice * 1.01 : latestPrice * 0.99) * market.priceDecimals,
+        baseAmount: Math.round(quantity * market.qtyDecimals),
+        price: Math.round(rawPrice),
         isAsk: side == "LONG" ? false : true,
         orderType: SignerClient.ORDER_TYPE_MARKET,
         timeInForce: SignerClient.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL,

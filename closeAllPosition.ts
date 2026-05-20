@@ -45,8 +45,8 @@ export async function closeAllPosition(account: Account) {
         await client.createOrder({
             marketIndex: market.marketId,
             clientOrderIndex,
-            baseAmount: Math.abs(Number(position)) * market.qtyDecimals,
-            price: worstPrice,
+            baseAmount: Math.round(Math.abs(Number(position)) * market.qtyDecimals),
+            price: Math.round(worstPrice),
             isAsk,
             orderType: SignerClient.ORDER_TYPE_MARKET,
             timeInForce: SignerClient.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL,

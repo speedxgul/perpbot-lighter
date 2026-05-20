@@ -10,13 +10,7 @@ import { MARKETS } from './markets';
 import { CreatePosition } from './createPosition';
 import { closeAllPosition } from './closeAllPosition';
 
-const globalWithAiSdkWarnings = globalThis as typeof globalThis & {
-    AI_SDK_LOG_WARNINGS?: boolean;
-};
-
-globalWithAiSdkWarnings.AI_SDK_LOG_WARNINGS = false;
-
-
+(globalThis as any).AI_SDK_LOG_WARNINGS = false;
 
 export const invokeAgent = async (account:Account, invocationCount = 0) => {
     const openrouter = createOpenRouter({
@@ -55,10 +49,9 @@ export const invokeAgent = async (account:Account, invocationCount = 0) => {
     //prisma model invocation
     const enrichedPrompt = PROMPT.replace("{{INVOKATION_TIMES}}", String(invocationCount))
     .replace("{{OPEN_POSITIONS}}", openPositions?.map((position) => `${position.symbol} ${position.position} ${position.sign}`).join(", ") ?? "")
-    .replace("{{PORTFOLIO_VALUE}}", `$${portfolio.available}`)
-    .replace("{{ALL_INDICATOR_DATA}}", ALL_INDICATOR_DATA ?? "")// if promise rejected then make a condition?
+    .replace("{{ALL_INDICATOR_DATA}}", ALL_INDICATOR_DATA ?? "")
     .replace("{{AVAILABLE_CASH}}", `$${portfolio.available}`)
-    .replace("{{CURRENT_ACCOUNT_VALUE}}", `$${portfolio.available}`)
+    .replace("{{CURRENT_ACCOUNT_VALUE}}", `$${portfolio.collateral}`)
     .replace("{{CURRENT_ACCOUNT_POSITIONS}}", JSON.stringify(openPositions))
     // console.log(enrichedPrompt)
 //create 2 tools, createPositions and closeAllPosition
@@ -97,6 +90,7 @@ export const invokeAgent = async (account:Account, invocationCount = 0) => {
               description: 'Close all open positions',
               inputSchema: z.object({}),
               execute: async () => {
+                console.log(`[tool] closeAllPositions`);
                 await closeAllPosition(account);
                 return 'All positions closed successfully';
               }
@@ -104,14 +98,19 @@ export const invokeAgent = async (account:Account, invocationCount = 0) => {
             hold: {
               description: 'Do nothing this cycle',
               inputSchema: z.object({ reason: z.string().describe('Brief reason for holding') }),
-              execute: async ({ reason }) => `Holding: ${reason}`,
+              execute: async ({ reason }) => {
+                console.log(`[tool] hold: ${reason}`);
+                return `Holding: ${reason}`;
+              },
             }
 
 }
     });
 
     await response.consumeStream();
-    return response.text;
+    const text = await response.text;
+    console.log('[agent] response:', text);
+    return text;
 };
 
 if (import.meta.main) {
@@ -125,6 +124,6 @@ if (import.meta.main) {
             console.error('Agent error:', e);
         }
         invocationCount++;
-        await Bun.sleep(20_000);
+        await Bun.sleep(30_000);
     }
 }

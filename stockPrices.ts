@@ -42,10 +42,9 @@ export async function getKlines(
 
 export async function getIndicators(duration:Resolution, marketId:number):Promise<{midPrices:number[], ema20:number[], macd:number[]}> {
     const klines = await getKlines(marketId, duration, 100, Date.now(), Date.now() - 1000 * 60 * 60 * 24);
-    const midPrices = await getMidPrices(klines);
-    // console.log("midPrices", midPrices.slice(-3));
-    const ema20 = await getEma(midPrices, 20);
-    const macd = await getMacd(midPrices);
+    const midPrices = getMidPrices(klines);
+    const ema20 = getEma(midPrices, 20);
+    const macd = getMacd(midPrices);
     return {
         midPrices: midPrices.slice(-10),
         ema20: ema20.slice(-10),
