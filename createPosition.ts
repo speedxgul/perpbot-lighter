@@ -30,7 +30,7 @@ export async function CreatePosition(account:Account,symbol:string,side:"LONG"|"
 
     const rawPrice = (side == "LONG" ? latestPrice * 1.01 : latestPrice * 0.99) * market.priceDecimals;
 
-    await client.createOrder({
+    const tx = await client.createOrder({
         marketIndex: market.marketId,
         clientOrderIndex,
         baseAmount: Math.round(quantity * market.qtyDecimals),
@@ -42,5 +42,11 @@ export async function CreatePosition(account:Account,symbol:string,side:"LONG"|"
         triggerPrice: SignerClient.NIL_TRIGGER_PRICE,
         orderExpiry: SignerClient.DEFAULT_IOC_EXPIRY,
     });
+
+    if (tx.apiResponse.code !== 0) {
+        throw new Error(`Order rejected (code ${tx.apiResponse.code}): ${tx.apiResponse.message ?? 'unknown'}`);
+    }
+
+    return tx.apiResponse.txHash;
 }
 

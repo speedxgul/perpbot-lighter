@@ -8,7 +8,7 @@ import { getPortfolio } from './getPortfolio';
 import { getIndicators } from './stockPrices';
 import { MARKETS } from './markets';
 import { CreatePosition } from './createPosition';
-import { closeAllPosition } from './closeAllPosition';
+import { closeAllPosition, closePosition } from './closeAllPosition';
 import { logInvocation, logToolCall } from './db';
 
 (globalThis as any).AI_SDK_LOG_WARNINGS = false;
@@ -68,6 +68,7 @@ export const invokeAgent = async (account:Account, invocationCount = 0) => {
         model: openrouter(account.modelName),
         prompt: enrichedPrompt,
         toolChoice: 'required',
+        maxSteps: 10,
         tools:{
             createPosition: {
                 description: 'Open a position in the given market',
@@ -79,28 +80,55 @@ export const invokeAgent = async (account:Account, invocationCount = 0) => {
                 execute: async ({ symbol, side, quantity }) => {
                   console.log(`[tool] createPosition: ${side} ${quantity} ${symbol}`);
                   try {
-                    await CreatePosition(account, symbol, side, quantity);
-                    const result = `Position opened successfully for ${quantity} ${symbol}`;
+                    const txHash = await CreatePosition(account, symbol, side, quantity);
+                    const result = `Position opened: ${quantity} ${symbol} ${side}, txHash: ${txHash}`;
                     logToolCall({ invocationId, tool: 'createPosition', args: { symbol, side, quantity }, result });
-                    console.log(`[tool] createPosition success`);
+                    console.log(`[tool] createPosition success, txHash: ${txHash}`);
                     return result;
                   } catch (e) {
                     const error = String(e);
                     logToolCall({ invocationId, tool: 'createPosition', args: { symbol, side, quantity }, error });
                     console.error(`[tool] createPosition error:`, e);
-                    throw e;
+                    return `Order failed: ${error}`;
                   }
                 },
               },
+            closePosition: {
+              description: 'Close the open position for a specific market',
+              inputSchema: z.object({
+                symbol: z.enum(Object.keys(MARKETS) as [string, ...string[]]).describe('The market to close the position in'),
+              }),
+              execute: async ({ symbol }) => {
+                console.log(`[tool] closePosition: ${symbol}`);
+                try {
+                  const txHash = await closePosition(account, symbol);
+                  const result = `${symbol} position closed, txHash: ${txHash}`;
+                  logToolCall({ invocationId, tool: 'closePosition', args: { symbol }, result });
+                  return result;
+                } catch (e) {
+                  const error = String(e);
+                  logToolCall({ invocationId, tool: 'closePosition', args: { symbol }, error });
+                  console.error(`[tool] closePosition error:`, e);
+                  return `Close failed for ${symbol}: ${error}`;
+                }
+              }
+            },
             closeAllPositions: {
-              description: 'Close all open positions',
+              description: 'Close all open positions across all markets',
               inputSchema: z.object({}),
               execute: async () => {
                 console.log(`[tool] closeAllPositions`);
-                await closeAllPosition(account);
-                const result = 'All positions closed successfully';
-                logToolCall({ invocationId, tool: 'closeAllPositions', args: {}, result });
-                return result;
+                try {
+                  await closeAllPosition(account);
+                  const result = 'All positions closed successfully';
+                  logToolCall({ invocationId, tool: 'closeAllPositions', args: {}, result });
+                  return result;
+                } catch (e) {
+                  const error = String(e);
+                  logToolCall({ invocationId, tool: 'closeAllPositions', args: {}, error });
+                  console.error(`[tool] closeAllPositions error:`, e);
+                  return `Close failed: ${error}`;
+                }
               }
             },
             hold: {
