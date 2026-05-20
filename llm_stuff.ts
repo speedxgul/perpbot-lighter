@@ -32,30 +32,43 @@ function getModel(account: Account) {
 
 export const invokeAgent = async (account: Account, invocationCount = 0) => {
 
-    const arrayOfIndicatorsData = await Promise.all(
-        (Object.keys(MARKETS) as (keyof typeof MARKETS)[]).map(async (marketSlug) => {
-            const intradayIndicators = await getIndicators("5m", MARKETS[marketSlug].marketId);
-            const longTermIndicators = await getIndicators("4h", MARKETS[marketSlug].marketId);
+    const marketKeys = Object.keys(MARKETS) as (keyof typeof MARKETS)[];
 
-            return `
+    // Fetch all 6 timeframe+market combinations plus portfolio/positions in parallel
+    const [allIndicators, openPositions, portfolio] = await Promise.all([
+        Promise.all(
+            marketKeys.map(marketSlug =>
+                Promise.all([
+                    getIndicators("5m", MARKETS[marketSlug].marketId),
+                    getIndicators("4h", MARKETS[marketSlug].marketId),
+                ])
+            )
+        ),
+        getOpenOrders(account),
+        getPortfolio(account),
+    ]);
+
+    console.log(openPositions);
+
+    const arrayOfIndicatorsData = marketKeys.map((marketSlug, i) => {
+        const [intradayIndicators, longTermIndicators] = allIndicators[i]!;
+        return `
     MARKET - ${marketSlug}
     Intraday (5m candles) (oldest → latest):
     Mid prices - [${intradayIndicators.midPrices.join(",")}]
     EMA20 - [${intradayIndicators.ema20.join(",")}]
     MACD - [${intradayIndicators.macd.join(",")}]
+    RSI(14) - [${intradayIndicators.rsi.join(",")}]
 
     Long Term (4h candles) (oldest → latest):
     Mid prices - [${longTermIndicators.midPrices.join(",")}]
     EMA20 - [${longTermIndicators.ema20.join(",")}]
     MACD - [${longTermIndicators.macd.join(",")}]
+    RSI(14) - [${longTermIndicators.rsi.join(",")}]
 
     `;
-        }));
+    });
     const ALL_INDICATOR_DATA = arrayOfIndicatorsData.join("\n");
-
-    const openPositions = await getOpenOrders(account);
-    console.log(openPositions);
-    const portfolio = await getPortfolio(account);
 
     const invocationId = logInvocation({
         accountName: account.Name,
@@ -172,6 +185,6 @@ if (import.meta.main) {
             console.error('Agent error:', e);
         }
         invocationCount++;
-        await Bun.sleep(30_000);
+        await Bun.sleep(15_000);
     }
 }

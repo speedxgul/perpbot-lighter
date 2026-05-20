@@ -1,4 +1,4 @@
-import { getEma, getMacd, getMidPrices } from "./indicators";
+import { getEma, getMacd, getMidPrices, getRsi } from "./indicators";
 
 const BASE_URL = "https://mainnet.zklighter.elliot.ai";
 const SOL_MARKET_ID = 2;
@@ -40,14 +40,16 @@ export async function getKlines(
 // console.log(`Got ${candles.length} `);
 // console.log(candles.slice(-3));
 
-export async function getIndicators(duration:Resolution, marketId:number):Promise<{midPrices:number[], ema20:number[], macd:number[]}> {
+export async function getIndicators(duration:Resolution, marketId:number):Promise<{midPrices:number[], ema20:number[], macd:number[], rsi:number[]}> {
     const klines = await getKlines(marketId, duration, 100, Date.now(), Date.now() - 1000 * 60 * 60 * 24);
     const midPrices = getMidPrices(klines);
     const ema20 = getEma(midPrices, 20);
     const macd = getMacd(midPrices);
+    const rsi = getRsi(midPrices);
     return {
         midPrices: midPrices.slice(-10),
         ema20: ema20.slice(-10),
         macd: macd.slice(-10),
+        rsi: rsi.slice(-5),
     }
 }

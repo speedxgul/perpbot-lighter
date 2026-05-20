@@ -43,3 +43,28 @@ export function getMacd(prices: number[]) {
     const macd = ema12.map((_, index) => (ema12[index] ?? 0) - (ema26[index] ?? 0));
     return macd
 }
+
+export function getRsi(prices: number[], period = 14): number[] {
+    if (prices.length < period + 1) return [];
+    const rsis: number[] = [];
+    let avgGain = 0;
+    let avgLoss = 0;
+    for (let i = 1; i <= period; i++) {
+        const diff = (prices[i] ?? 0) - (prices[i - 1] ?? 0);
+        if (diff >= 0) avgGain += diff; else avgLoss -= diff;
+    }
+    avgGain /= period;
+    avgLoss /= period;
+    const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+    rsis.push(parseFloat((100 - 100 / (1 + rs)).toFixed(2)));
+    for (let i = period + 1; i < prices.length; i++) {
+        const diff = (prices[i] ?? 0) - (prices[i - 1] ?? 0);
+        const gain = diff > 0 ? diff : 0;
+        const loss = diff < 0 ? -diff : 0;
+        avgGain = (avgGain * (period - 1) + gain) / period;
+        avgLoss = (avgLoss * (period - 1) + loss) / period;
+        const rs2 = avgLoss === 0 ? 100 : avgGain / avgLoss;
+        rsis.push(parseFloat((100 - 100 / (1 + rs2)).toFixed(2)));
+    }
+    return rsis;
+}
