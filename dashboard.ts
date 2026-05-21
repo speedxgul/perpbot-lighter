@@ -58,6 +58,7 @@ function parsePositions(raw: string | null): PositionSnapshot[] {
 function computeTrades(invocations: InvocationRow[]): Trade[] {
     const trades: Trade[] = [];
     const open: Record<string, { trade: Trade; realizedAtOpen: number } | undefined> = {};
+    const lastRealizedBySymbol: Record<string, number> = {};
 
     for (const inv of invocations) {
         const positions = parsePositions(inv.open_positions);
@@ -69,6 +70,7 @@ function computeTrades(invocations: InvocationRow[]): Trade[] {
             const realized = Number(p.realizedPnl) || 0;
             const entryPrice = Number(p.entryPrice) || 0;
             const cur = open[p.symbol];
+            lastRealizedBySymbol[p.symbol] = realized;
 
             if (qty > 0) {
                 if (!cur) {
@@ -124,6 +126,8 @@ function computeTrades(invocations: InvocationRow[]): Trade[] {
             const cur = open[sym];
             if (cur && !seen.has(sym)) {
                 cur.trade.exitTime = inv.created_at;
+                const latestRealized = lastRealizedBySymbol[sym] ?? cur.realizedAtOpen;
+                cur.trade.realizedPnl = latestRealized - cur.realizedAtOpen;
                 cur.trade.holdSeconds = inv.created_at - cur.trade.entryTime;
                 cur.trade.open = false;
                 trades.push(cur.trade);
@@ -265,7 +269,9 @@ Bun.serve({
                             try {
                                 const payload = JSON.stringify(getData());
                                 controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
-                            } catch { }
+                            } catch (error) {
+                                console.error("[dashboard] stream update failed:", error);
+                            }
                         };
 
                         send();
