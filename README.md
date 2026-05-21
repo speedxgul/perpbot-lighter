@@ -1,6 +1,7 @@
 Simplified Perpetual futures trading bot for [Lighter DEX](https://mainnet.zklighter.elliot.ai) (zkLighter mainnet). Each cycle it fetches candle data, computes technical indicators, asks a model (Flagships across Claude/Qwen/OpenAI) to decide what to do on **SOL**, **ZEC**, and **HYPE**, then signs and submits market orders via the bundled `lighter-sdk-ts` signer.
 
 ![Unrealized PnL by market](image.png)
+![Unrealized PnL by market](image2.png)
 
 **Warning:** This bot places **real orders** on mainnet with real funds. Use a small account, understand liquidation risk, and treat this as experimental software.
 
