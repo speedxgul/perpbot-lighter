@@ -5,6 +5,14 @@ import type { Account } from "./accounts";
 import { MARKETS } from "./markets";
 import { getOpenOrders } from "./getPositions";
 import { CandlestickApi, IsomorphicFetchHttpLibrary, ServerConfiguration } from "./lighter-sdk-ts/generated";
+import { throttledOrder } from "./orderThrottle";
+
+export class NoOpenPositionError extends Error {
+    constructor(symbol: string) {
+        super(`No open position for ${symbol}`);
+        this.name = "NoOpenPositionError";
+    }
+}
 
 async function getLatestPrice(candleStickApi: CandlestickApi, marketId: number): Promise<number> {
     const data = await candleStickApi.candlesticks(marketId, '1m', Date.now() - 1000 * 60 * 5, Date.now(), 1, false);
@@ -34,7 +42,9 @@ export async function closePosition(account: Account, symbol: string): Promise<s
 
     const openPositions = await getOpenOrders(account);
     const pos = openPositions?.find(p => p.symbol === symbol);
-    if (!pos || Number(pos.position) === 0) return `No open position for ${symbol}`;
+    if (!pos || Number(pos.position) === 0) {
+        throw new NoOpenPositionError(symbol);
+    }
 
     const latestPrice = await getLatestPrice(candleStickApi, market.marketId);
     const isLong = pos.sign === 1;
@@ -42,18 +52,20 @@ export async function closePosition(account: Account, symbol: string): Promise<s
     const worstPrice = (isLong ? latestPrice * 0.99 : latestPrice * 1.01) * market.priceDecimals;
     const clientOrderIndex = Math.floor((market.clientOrderIndex + 1) * 1_000_000_000 + (Date.now() % 1_000_000_000));
 
-    const tx = await client.createOrder({
-        marketIndex: market.marketId,
-        clientOrderIndex,
-        baseAmount: Math.round(Math.abs(Number(pos.position)) * market.qtyDecimals),
-        price: Math.round(worstPrice),
-        isAsk,
-        orderType: SignerClient.ORDER_TYPE_MARKET,
-        timeInForce: SignerClient.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL,
-        reduceOnly: 1,
-        triggerPrice: SignerClient.NIL_TRIGGER_PRICE,
-        orderExpiry: SignerClient.DEFAULT_IOC_EXPIRY,
-    });
+    const tx = await throttledOrder(`close ${symbol}`, () =>
+        client.createOrder({
+            marketIndex: market.marketId,
+            clientOrderIndex,
+            baseAmount: Math.round(Math.abs(Number(pos.position)) * market.qtyDecimals),
+            price: Math.round(worstPrice),
+            isAsk,
+            orderType: SignerClient.ORDER_TYPE_MARKET,
+            timeInForce: SignerClient.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL,
+            reduceOnly: 1,
+            triggerPrice: SignerClient.NIL_TRIGGER_PRICE,
+            orderExpiry: SignerClient.DEFAULT_IOC_EXPIRY,
+        })
+    );
 
     if (tx.apiResponse.code !== 0) {
         throw new Error(`Close rejected for ${symbol} (code ${tx.apiResponse.code}): ${tx.apiResponse.message ?? 'unknown'}`);
